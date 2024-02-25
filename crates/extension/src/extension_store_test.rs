@@ -455,7 +455,14 @@ async fn test_extension_store_with_language_servers(cx: &mut TestAppContext) {
                 async move {
                     let resource = store.data_mut().table().push(worktree).unwrap();
                     let command = extension
-                        .call_get_language_server_command(store, resource)
+                        .call_get_language_server_command(
+                            store,
+                            &wit::LanguageServerConfig {
+                                name: todo!(),
+                                language_name: "".into(),
+                            },
+                            resource,
+                        )
                         .await;
                     command
                 }

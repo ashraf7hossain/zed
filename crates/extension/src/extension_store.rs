@@ -33,18 +33,45 @@ use wasm_host::{WasmExtension, WasmHost};
 
 #[derive(Deserialize)]
 pub struct ExtensionsApiResponse {
-    pub data: Vec<Extension>,
+    pub data: Vec<ExtensionApiResponse>,
 }
 
-#[derive(Clone, Deserialize)]
-pub struct Extension {
+#[derive(Deserialize)]
+pub struct ExtensionApiResponse {
     pub id: Arc<str>,
-    pub version: Arc<str>,
     pub name: String,
+    pub version: Arc<str>,
     pub description: Option<String>,
     pub authors: Vec<String>,
     pub repository: String,
     pub download_count: usize,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+pub struct ExtensionManifest {
+    pub id: Arc<str>,
+    pub name: String,
+    pub version: Arc<str>,
+    pub description: Option<String>,
+    pub authors: Vec<String>,
+    pub repository: String,
+
+    pub grammars: BTreeMap<Arc<str>, GrammarManifestEntry>,
+    pub languages: BTreeMap<Arc<str>, LanguageManifestEntry>,
+    pub themes: BTreeMap<Arc<str>, PathBuf>,
+    pub language_servers: BTreeMap<Arc<str>, LanguageServerManifestEntry>,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+pub struct GrammarManifestEntry {
+    repository: String,
+    #[serde(alias = "commit")]
+    rev: String,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
+struct LanguageServerManifestEntry {
+    language: String,
 }
 
 #[derive(Clone)]
@@ -94,11 +121,13 @@ impl Global for GlobalExtensionStore {}
 
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct Manifest {
-    pub extensions: BTreeMap<Arc<str>, Arc<str>>,
-    pub grammars: BTreeMap<Arc<str>, ManifestEntry>,
-    pub language_servers: BTreeMap<Arc<str>, ManifestEntry>,
-    pub languages: BTreeMap<Arc<str>, LanguageManifestEntry>,
-    pub themes: BTreeMap<Arc<str>, ThemeManifestEntry>,
+    pub extensions: BTreeMap<Arc<str>, ExtensionManifest>,
+    pub languages: BTreeMap<Arc<str>, Arc<str>>,
+    // pub extensions: BTreeMap<Arc<str>, Arc<str>>,
+    // pub grammars: BTreeMap<Arc<str>, ManifestEntry>,
+    // pub language_servers: BTreeMap<Arc<str>, ManifestEntry>,
+    // pub languages: BTreeMap<Arc<str>, LanguageManifestEntry>,
+    // pub themes: BTreeMap<Arc<str>, ThemeManifestEntry>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord, Deserialize, Serialize)]
@@ -249,7 +278,7 @@ impl ExtensionStore {
         &self,
         search: Option<&str>,
         cx: &mut ModelContext<Self>,
-    ) -> Task<Result<Vec<Extension>>> {
+    ) -> Task<Result<Vec<ExtensionApiResponse>>> {
         let url = self.http_client.build_zed_api_url(&format!(
             "/extensions{query}",
             query = search

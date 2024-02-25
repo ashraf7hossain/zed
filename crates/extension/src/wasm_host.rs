@@ -36,7 +36,12 @@ pub(crate) struct WasmHost {
 
 #[derive(Clone)]
 pub struct WasmExtension {
+    config: Arc<WasmExtensionConfig>,
     tx: UnboundedSender<ExtensionCall>,
+}
+
+struct WasmExtensionConfig {
+    language_servers: Vec<wit::LanguageServerConfig>,
 }
 
 pub(crate) struct WasmState {
@@ -71,6 +76,7 @@ impl WasmHost {
 
     pub fn load_extension(
         self: &Arc<Self>,
+        config: WasmExtensionConfig,
         wasm_bytes: Vec<u8>,
         executor: BackgroundExecutor,
     ) -> impl 'static + Future<Output = Result<WasmExtension>> {
@@ -99,7 +105,10 @@ impl WasmHost {
                     }
                 })
                 .detach();
-            Ok(WasmExtension { tx })
+            Ok(WasmExtension {
+                tx,
+                config: Arc::new(config),
+            })
         }
     }
 }
