@@ -5,6 +5,8 @@ use std::{any::TypeId, path::Path, sync::Arc};
 use gpui::{AppContext, Context, Model, ModelContext, Subscription};
 use task::{Source, Task, TaskId};
 
+use crate::ProjectPath;
+
 /// Inventory tracks available tasks for a given project.
 pub struct Inventory {
     sources: Vec<SourceInInventory>,
@@ -26,7 +28,13 @@ impl Inventory {
     }
 
     /// Registers a new tasks source, that would be fetched for available tasks.
-    pub fn add_source(&mut self, source: Model<Box<dyn Source>>, cx: &mut ModelContext<Self>) {
+    pub fn add_source(
+        &mut self,
+        abs_path: Option<&Path>,
+        project_path: Option<&ProjectPath>,
+        source: impl FnOnce(&mut ModelContext<Self>) -> Model<Box<dyn Source>>,
+        cx: &mut ModelContext<Self>,
+    ) {
         let _subscription = cx.observe(&source, |_, _, cx| {
             cx.notify();
         });
@@ -39,6 +47,22 @@ impl Inventory {
         self.sources.push(source);
         cx.notify();
     }
+
+    /// TODO kb docs
+    pub fn remove_source(
+        &mut self,
+        abs_path: Option<&Path>,
+        project_path: Option<&ProjectPath>,
+    ) -> bool {
+        match (abs_path, project_path) {
+            (None, None) => todo!(),
+            (None, Some(_)) => todo!(),
+            (Some(_), None) => todo!(),
+            (Some(_), Some(_)) => todo!(),
+        }
+        //
+    }
+
     pub fn source<T: Source>(&self) -> Option<Model<Box<dyn Source>>> {
         let target_type_id = std::any::TypeId::of::<T>();
         self.sources.iter().find_map(

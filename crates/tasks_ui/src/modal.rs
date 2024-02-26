@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use fuzzy::{StringMatch, StringMatchCandidate};
 use gpui::{
@@ -7,7 +7,7 @@ use gpui::{
     VisualContext, WeakView,
 };
 use picker::{Picker, PickerDelegate};
-use project::Inventory;
+use project::{Inventory, ProjectPath};
 use task::{oneshot_source::OneshotSource, Task};
 use ui::{v_flex, HighlightedLabel, ListItem, ListItemSpacing, Selectable, WindowContext};
 use util::ResultExt;
@@ -50,6 +50,21 @@ impl TasksModalDelegate {
                 return None;
             };
             Some(this.spawn(self.last_prompt.clone()))
+        })
+    }
+
+    fn active_item_path(
+        &mut self,
+        cx: &mut ViewContext<'_, Picker<Self>>,
+    ) -> Option<(PathBuf, ProjectPath)> {
+        let workspace = self.workspace.upgrade()?.read(cx);
+        let project = workspace.project().read(cx);
+        let active_item = workspace.active_item(cx)?;
+        active_item.project_path(cx).and_then(|project_path| {
+            project
+                .worktree_for_id(project_path.worktree_id, cx)
+                .map(|worktree| worktree.read(cx).abs_path().join(&project_path.path))
+                .zip(Some(project_path))
         })
     }
 }
@@ -180,6 +195,7 @@ impl PickerDelegate for TasksModalDelegate {
 
     fn confirm(&mut self, secondary: bool, cx: &mut ViewContext<picker::Picker<Self>>) {
         let current_match_index = self.selected_index();
+        let active_item_path = self.active_item_path(cx);
 
         let task = if secondary {
             if !self.last_prompt.trim().is_empty() {

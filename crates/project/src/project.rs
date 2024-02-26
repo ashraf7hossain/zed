@@ -63,7 +63,7 @@ use rand::prelude::*;
 use rpc::{ErrorCode, ErrorExt as _};
 use search::SearchQuery;
 use serde::Serialize;
-use settings::{Settings, SettingsStore};
+use settings::{watch_config_file, Settings, SettingsStore};
 use sha2::{Digest, Sha256};
 use similar::{ChangeTag, TextDiff};
 use smol::channel::{Receiver, Sender};
@@ -86,11 +86,15 @@ use std::{
     },
     time::{Duration, Instant},
 };
+use task::static_source::StaticSource;
 use terminals::Terminals;
 use text::{Anchor, BufferId};
 use util::{
-    debug_panic, defer, http::HttpClient, merge_json_value_into,
-    paths::LOCAL_SETTINGS_RELATIVE_PATH, post_inc, ResultExt, TryFutureExt as _,
+    debug_panic, defer,
+    http::HttpClient,
+    merge_json_value_into,
+    paths::{self, LOCAL_SETTINGS_RELATIVE_PATH, LOCAL_TASKS_RELATIVE_PATH},
+    post_inc, ResultExt, TryFutureExt as _,
 };
 
 pub use fs::*;
@@ -7166,6 +7170,27 @@ impl Project {
                         },
                     )
                 });
+            } else if path.ends_with(&*LOCAL_TASKS_RELATIVE_PATH) {
+                self.task_inventory().update(cx, |task_inventory, cx| {
+                    if change == PathChange::Removed {
+                        task_inventory.remove_source(Some(), Some(), cx);
+                    } else {
+                        let fs = self.fs.clone();
+                        task_inventory.add_source(
+                            Some(),
+                            Some(),
+                            |cx| {
+                                let tasks_file_rx = watch_config_file(
+                                    &cx.background_executor(),
+                                    fs,
+                                    paths::TASKS.clone(),
+                                );
+                                StaticSource::new(tasks_file_rx, cx)
+                            },
+                            cx,
+                        );
+                    }
+                })
             }
         }
 

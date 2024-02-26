@@ -157,18 +157,23 @@ pub fn initialize_workspace(app_state: Arc<AppState>, cx: &mut AppContext) {
 
         let project = workspace.project().clone();
         if project.read(cx).is_local() {
-            let tasks_file_rx = watch_config_file(
-                &cx.background_executor(),
-                app_state.fs.clone(),
-                paths::TASKS.clone(),
-            );
-            let static_source = StaticSource::new(tasks_file_rx, cx);
-            let oneshot_source = OneshotSource::new(cx);
-
             project.update(cx, |project, cx| {
+                let fs = app_state.fs.clone();
                 project.task_inventory().update(cx, |inventory, cx| {
-                    inventory.add_source(oneshot_source, cx);
-                    inventory.add_source(static_source, cx);
+                    inventory.add_source(None, None, OneshotSource::new, cx);
+                    inventory.add_source(
+                        Some(&paths::TASKS),
+                        None,
+                        |cx| {
+                            let tasks_file_rx = watch_config_file(
+                                &cx.background_executor(),
+                                fs,
+                                paths::TASKS.clone(),
+                            );
+                            StaticSource::new(tasks_file_rx, cx)
+                        },
+                        cx,
+                    );
                 })
             });
         }
